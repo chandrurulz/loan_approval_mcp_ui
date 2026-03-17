@@ -1,0 +1,31 @@
+{
+  "name": "python_abi",
+  "version": "3.14",
+  "build": "2_cp314",
+  "build_number": 2,
+  "channel": "https://repo.anaconda.com/pkgs/main/osx-arm64",
+  "subdir": "osx-arm64",
+  "fn": "python_abi-3.14-2_cp314.conda",
+  "md5": "763817a63ae71bf32da4e4ecc11d8081",
+  "url": "https://repo.anaconda.com/pkgs/main/osx-arm64/python_abi-3.14-2_cp314.conda",
+  "sha256": "c7f5f5eaf33a5baa82a8bedd392674b169ff42600220b8cc748a45a2a51b0bf7",
+  "depends": [],
+  "constrains": [
+    "python 3.14.* *_cp314"
+  ],
+  "license": "BSD-3-Clause",
+  "timestamp": 1764020877000,
+  "size": 5858,
+  "requested_spec": "None",
+  "package_tarball_full_path": "/Users/chandrashekarraju/miniconda3/pkgs/python_abi-3.14-2_cp314.conda",
+  "extracted_package_dir": "/Users/chandrashekarraju/miniconda3/pkgs/python_abi-3.14-2_cp314",
+  "files": [],
+  "paths_data": {
+    "paths_version": 1,
+    "paths": []
+  },
+  "link": {
+    "source": "/Users/chandrashekarraju/miniconda3/pkgs/python_abi-3.14-2_cp314",
+    "type": 1
+  }
+}

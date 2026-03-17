@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loan Approval — AI Decision Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg:        #F7F5F0;
+  --surface:   #FFFFFF;
+  --border:    rgba(0,0,0,0.08);
+  --border2:   rgba(0,0,0,0.14);
+  --text:      #1A1814;
+  --muted:     #6B6760;
+  --hint:      #9E9B96;
+  --navy:      #0F2645;
+  --blue:      #1A56DB;
+  --blue-lt:   #EBF2FF;
+  --green:     #057A55;
+  --green-lt:  #E8F5F0;
+  --amber:     #92400E;
+  --amber-lt:  #FEF3C7;
+  --red:       #9B1C1C;
+  --red-lt:    #FEE2E2;
+  --gold:      #B45309;
+  --serif:     'DM Serif Display', Georgia, serif;
+  --sans:      'DM Sans', system-ui, sans-serif;
+  --mono:      'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.header {
+  background: var(--navy);
+  padding: 0 40px;
+  height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+}
+.header-brand {
+  display: flex; align-items: center; gap: 12px;
+}
+.header-logo {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--serif); font-size: 16px; color: white; font-weight: 400;
+}
+.header-title {
+  font-family: var(--serif); font-size: 18px; color: white;
+  letter-spacing: -0.01em;
+}
+.header-sub {
+  font-size: 11px; color: rgba(255,255,255,0.45);
+  font-family: var(--mono); letter-spacing: 0.06em;
+}
+.api-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-family: var(--mono);
+  color: rgba(255,255,255,0.5);
+}
+.api-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #6B7280;
+  transition: background 0.3s;
+}
+.api-dot.up   { background: #34D399; box-shadow: 0 0 0 3px rgba(52,211,153,0.2); }
+.api-dot.down { background: #F87171; }
+
+/* ── Layout ── */
+.layout {
+  max-width: 1180px; margin: 0 auto;
+  display: grid; grid-template-columns: 480px 1fr;
+  gap: 28px; padding: 32px 24px;
+  min-height: calc(100vh - 60px);
+}
+
+/* ── Form panel ── */
+.form-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  height: fit-content;
+  position: sticky; top: 88px;
+}
+.form-panel-header {
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.form-panel-title {
+  font-family: var(--serif); font-size: 22px; color: var(--navy);
+  margin-bottom: 4px;
+}
+.form-panel-sub { font-size: 13px; color: var(--muted); }
+
+.form-body { padding: 24px 28px; }
+
+.form-section {
+  margin-bottom: 24px;
+}
+.form-section-title {
+  font-size: 10px; font-weight: 600; color: var(--hint);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.form-section-title::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+.field-row.full { grid-template-columns: 1fr; }
+
+.field {
+  display: flex; flex-direction: column; gap: 5px;
+}
+.field label {
+  font-size: 11px; font-weight: 500; color: var(--muted);
+  letter-spacing: 0.03em;
+}
+.field input, .field select {
+  height: 38px; padding: 0 12px;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  background: var(--bg);
+  font-family: var(--sans); font-size: 13px; color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  -webkit-appearance: none;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--blue);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(26,86,219,0.08);
+}
+.field input.error { border-color: #F05252; }
+.field input::placeholder { color: var(--hint); }
+
+/* Quick-fill test buttons */
+.quickfill {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 18px;
+}
+.quickfill-label {
+  width: 100%; font-size: 10px; color: var(--hint);
+  letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 2px;
+}
+.qbtn {
+  font-size: 11px; padding: 4px 10px;
+  border-radius: 999px; border: 1px solid var(--border2);
+  background: transparent; color: var(--muted);
+  cursor: pointer; font-family: var(--sans);
+  transition: all 0.15s;
+}
+.qbtn:hover { background: var(--navy); color: white; border-color: var(--navy); }
+.qbtn.approve { border-color: rgba(5,122,85,0.4); color: var(--green); }
+.qbtn.approve:hover { background: var(--green); color: white; }
+.qbtn.reject  { border-color: rgba(155,28,28,0.4); color: var(--red); }
+.qbtn.reject:hover  { background: var(--red); color: white; }
+.qbtn.refer   { border-color: rgba(146,64,14,0.4); color: var(--amber); }
+.qbtn.refer:hover   { background: var(--amber); color: white; }
+
+.submit-btn {
+  width: 100%; height: 46px;
+  background: var(--navy); color: white;
+  border: none; border-radius: 10px;
+  font-family: var(--sans); font-size: 14px; font-weight: 500;
+  cursor: pointer; letter-spacing: 0.01em;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background 0.15s, transform 0.1s;
+  margin-top: 8px;
+}
+.submit-btn:hover:not(:disabled) { background: #1a3a6e; }
+.submit-btn:active:not(:disabled) { transform: scale(0.99); }
+.submit-btn:disabled { background: var(--hint); cursor: not-allowed; }
+.submit-btn .spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+.submit-btn.loading .spinner { display: block; }
+.submit-btn.loading .btn-text { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Results panel ── */
+.results-panel {
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.empty-state {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 64px 32px;
+  text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.empty-icon {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: var(--blue-lt);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; margin-bottom: 4px;
+}
+.empty-title { font-family: var(--serif); font-size: 20px; color: var(--navy); }
+.empty-sub { font-size: 13px; color: var(--muted); max-width: 280px; line-height: 1.6; }
+
+/* Decision card */
+.decision-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden;
+  animation: slideIn 0.35s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.decision-hero {
+  padding: 28px 32px;
+  border-bottom: 1px solid var(--border);
+  position: relative; overflow: hidden;
+}
+.decision-hero.approve { background: var(--green-lt); }
+.decision-hero.refer   { background: var(--amber-lt); }
+.decision-hero.reject  { background: var(--red-lt); }
+
+.decision-verdict {
+  font-family: var(--serif); font-size: 36px; letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.decision-verdict.approve { color: var(--green); }
+.decision-verdict.refer   { color: var(--amber); }
+.decision-verdict.reject  { color: var(--red); }
+
+.decision-meta {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.decision-meta-item {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.decision-meta-label { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.decision-meta-value { font-family: var(--mono); font-size: 18px; font-weight: 500; color: var(--text); }
+
+.score-ring {
+  position: absolute; right: 28px; top: 50%; transform: translateY(-50%);
+}
+.score-ring svg { transform: rotate(-90deg); }
+.score-ring-label {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.score-ring-label .score-num {
+  font-family: var(--serif); font-size: 22px; color: var(--text);
+}
+.score-ring-label .score-sub {
+  font-size: 9px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+/* Loan terms */
+.terms-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--border);
+  border-top: 1px solid var(--border);
+}
+.term-cell {
+  background: var(--surface); padding: 16px 20px;
+}
+.term-label { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+.term-value { font-family: var(--serif); font-size: 18px; color: var(--navy); }
+.term-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+/* Reason codes */
+.reason-codes {
+  padding: 16px 24px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.reason-code {
+  font-family: var(--mono); font-size: 11px;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--red-lt); color: var(--red);
+  border: 1px solid rgba(155,28,28,0.2);
+}
+.reason-code.warn {
+  background: var(--amber-lt); color: var(--amber);
+  border-color: rgba(146,64,14,0.2);
+}
+
+/* Agent breakdown */
+.agents-section { padding: 20px 24px; }
+.agents-title {
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.agent-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.agent-row:last-child { border-bottom: none; }
+.agent-status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.agent-status-dot.pass  { background: var(--green); }
+.agent-status-dot.fail  { background: var(--red); }
+.agent-status-dot.error { background: var(--hint); }
+
+.agent-name { font-size: 13px; font-weight: 500; flex: 1; color: var(--text); }
+.agent-weight {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--hint); width: 28px; text-align: right;
+}
+.agent-bar-wrap {
+  width: 100px; height: 5px;
+  background: var(--bg); border-radius: 999px; overflow: hidden;
+}
+.agent-bar {
+  height: 100%; border-radius: 999px;
+  transition: width 0.6s ease;
+}
+.agent-bar.pass  { background: var(--green); }
+.agent-bar.fail  { background: var(--red); }
+.agent-bar.error { background: var(--hint); }
+.agent-score {
+  font-family: var(--mono); font-size: 12px; font-weight: 500;
+  width: 36px; text-align: right;
+}
+.agent-score.pass  { color: var(--green); }
+.agent-score.fail  { color: var(--red); }
+.agent-score.error { color: var(--hint); }
+.agent-flags {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px;
+}
+.agent-flag {
+  font-family: var(--mono); font-size: 9px;
+  padding: 1px 6px; border-radius: 3px;
+  background: var(--red-lt); color: var(--red);
+}
+
+.agent-inner { flex: 1; }
+
+/* History */
+.history-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden;
+}
+.history-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.history-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.history-clear {
+  font-size: 11px; color: var(--muted); background: none;
+  border: none; cursor: pointer; font-family: var(--sans);
+}
+.history-clear:hover { color: var(--red); }
+.history-list { max-height: 220px; overflow-y: auto; }
+.history-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 20px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.1s;
+}
+.history-row:last-child { border-bottom: none; }
+.history-row:hover { background: var(--bg); }
+.history-verdict {
+  font-size: 10px; font-weight: 600; padding: 2px 8px;
+  border-radius: 999px; letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.history-verdict.approve { background: var(--green-lt); color: var(--green); }
+.history-verdict.refer   { background: var(--amber-lt); color: var(--amber); }
+.history-verdict.reject  { background: var(--red-lt);   color: var(--red); }
+.history-name { font-size: 13px; flex: 1; color: var(--text); }
+.history-score { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.history-time  { font-family: var(--mono); font-size: 11px; color: var(--hint); }
+
+/* Error toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--navy); color: white;
+  padding: 12px 18px; border-radius: 10px;
+  font-size: 13px; max-width: 360px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  transform: translateY(80px); opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 100;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.error { background: #9B1C1C; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .form-panel { position: static; }
+  .field-row { grid-template-columns: 1fr; }
+  .field-row.triple { grid-template-columns: 1fr 1fr; }
+  .terms-grid { grid-template-columns: repeat(2, 1fr); }
+  .score-ring { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-brand">
+    <div class="header-logo">L</div>
+    <div>
+      <div class="header-title">LoanAI</div>
+    </div>
+  </div>
+  <div class="api-status">
+    <span class="api-dot" id="api-dot"></span>
+    <span id="api-status-text">checking api...</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── Form Panel ── -->
+  <div class="form-panel">
+    <div class="form-panel-header">
+      <div class="form-panel-title">New Application</div>
+      <div class="form-panel-sub">Fill in customer details or use a test profile below</div>
+    </div>
+    <div class="form-body">
+
+      <!-- Quick fill -->
+      <div class="quickfill">
+        <span class="quickfill-label">Test profiles</span>
+        <button class="qbtn approve" onclick="fillProfile('approve')">✓ Priya Sharma</button>
+        <button class="qbtn refer"   onclick="fillProfile('refer')">~ Zubair Khan</button>
+        <button class="qbtn reject"  onclick="fillProfile('reject')">✗ Fraudster</button>
+        <button class="qbtn"         onclick="fillProfile('rahul')">Rahul Mehta</button>
+      </div>
+
+      <form id="loan-form" onsubmit="submitApplication(event)">
+
+        <!-- Personal -->
+        <div class="form-section">
+          <div class="form-section-title">Personal details</div>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field">
+              <label>Full name *</label>
+              <input type="text" id="customer_name" placeholder="Priya Sharma" required>
+            </div>
+            <div class="field">
+              <label>Date of birth *</label>
+              <input type="date" id="date_of_birth" required>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field">
+              <label>PAN number *</label>
+              <input type="text" id="pan_number" placeholder="ABCPS1234P" maxlength="10" style="text-transform:uppercase" required>
+            </div>
+            <div class="field">
+              <label>Aadhaar number *</label>
+              <input type="text" id="aadhaar_number" placeholder="9876-5432-1098" required>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Mobile *</label>
+              <input type="tel" id="mobile" placeholder="9876543210" required>
+            </div>
+            <div class="field">
+              <label>Email *</label>
+              <input type="email" id="email" placeholder="priya@gmail.com" required>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loan -->
+        <div class="form-section">
+          <div class="form-section-title">Loan details</div>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field">
+              <label>Loan amount (₹) *</label>
+              <input type="number" id="loan_amount" placeholder="500000" min="10000" required>
+            </div>
+            <div class="field">
+              <label>Tenure (months) *</label>
+              <input type="number" id="loan_tenure_months" placeholder="36" min="6" max="360" required>
+            </div>
+          </div>
+          <div class="field-row full">
+            <div class="field">
+              <label>Loan purpose</label>
+              <select id="loan_purpose">
+                <option value="personal">Personal</option>
+                <option value="home_purchase">Home Purchase</option>
+                <option value="home_renovation">Home Renovation</option>
+                <option value="vehicle">Vehicle</option>
+                <option value="education">Education</option>
+                <option value="medical">Medical</option>
+                <option value="business">Business</option>
+                <option value="debt_consolidation">Debt Consolidation</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Employment -->
+        <div class="form-section">
+          <div class="form-section-title">Employment</div>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field">
+              <label>Monthly income (₹) *</label>
+              <input type="number" id="monthly_income" placeholder="85000" min="1000" required>
+            </div>
+            <div class="field">
+              <label>Employment type</label>
+              <select id="employment_type">
+                <option value="salaried">Salaried</option>
+                <option value="self_employed">Self-employed</option>
+                <option value="business">Business</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field">
+              <label>Employer name *</label>
+              <input type="text" id="employer_name" placeholder="Tata Consultancy Services" required>
+            </div>
+            <div class="field">
+              <label>Years employed</label>
+              <input type="number" id="years_of_employment" placeholder="5" min="0" step="0.5">
+            </div>
+          </div>
+        </div>
+
+        <!-- Address -->
+        <div class="form-section">
+          <div class="form-section-title">Address</div>
+          <div class="field-row full" style="margin-bottom:12px">
+            <div class="field">
+              <label>Residential address *</label>
+              <input type="text" id="residential_address" placeholder="42 MG Road, Bengaluru" required>
+            </div>
+          </div>
+          <div class="field-row triple">
+            <div class="field">
+              <label>City</label>
+              <input type="text" id="city" placeholder="Bengaluru">
+            </div>
+            <div class="field">
+              <label>Pincode</label>
+              <input type="text" id="pincode" placeholder="560001" maxlength="6">
+            </div>
+            <div class="field">
+              <label>IP address</label>
+              <input type="text" id="ip_address" placeholder="0.0.0.0">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submit-btn">
+          <div class="spinner"></div>
+          <span class="btn-text">Submit Application →</span>
+        </button>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Results Panel ── -->
+  <div class="results-panel" id="results-panel">
+
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">⚡</div>
+      <div class="empty-title">AI Decision Engine</div>
+      <div class="empty-sub">Submit a loan application to see real-time scoring from 5 AI agents across document verification, credit bureau, income assessment, fraud detection, and compliance.</div>
+    </div>
+
+    <div id="decision-output" style="display:none"></div>
+
+    <div class="history-section" id="history-section" style="display:none">
+      <div class="history-header">
+        <span class="history-title">Recent applications</span>
+        <button class="history-clear" onclick="clearHistory()">Clear</button>
+      </div>
+      <div class="history-list" id="history-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:8000';
+let history = [];
+
+// ── API health check ───────────────────────────────────────────────────────
+async function checkApi() {
+  try {
+    const r = await fetch(`${API}/api/v1/health`, { signal: AbortSignal.timeout(3000) });
+    const ok = r.ok;
+    document.getElementById('api-dot').className = 'api-dot ' + (ok ? 'up' : 'down');
+    document.getElementById('api-status-text').textContent = ok ? 'API online' : 'API error';
+  } catch {
+    document.getElementById('api-dot').className = 'api-dot down';
+    document.getElementById('api-status-text').textContent = 'API offline';
+  }
+}
+checkApi();
+setInterval(checkApi, 10000);
+
+// ── Test profiles ──────────────────────────────────────────────────────────
+const PROFILES = {
+  approve: {
+    customer_name:'Priya Sharma', date_of_birth:'1988-04-15',
+    pan_number:'ABCPS1234P', aadhaar_number:'9876-5432-1098',
+    mobile:'9876543210', email:'priya.sharma@gmail.com',
+    loan_amount:500000, loan_tenure_months:36,
+    loan_purpose:'home_renovation',
+    monthly_income:85000, employer_name:'Tata Consultancy Services',
+    employment_type:'salaried', years_of_employment:6.5,
+    residential_address:'42 MG Road, Bengaluru',
+    city:'Bengaluru', pincode:'560001', ip_address:'103.21.58.1',
+  },
+  refer: {
+    customer_name:'Zubair Ali Khan', date_of_birth:'1975-11-30',
+    pan_number:'ZZXZA9999Z', aadhaar_number:'1234-5678-9012',
+    mobile:'9123456780', email:'zubair.khan@company.com',
+    loan_amount:1500000, loan_tenure_months:60,
+    loan_purpose:'business',
+    monthly_income:180000, employer_name:'Self-Employed',
+    employment_type:'self_employed', years_of_employment:10,
+    residential_address:'15 Juhu Tara Road, Mumbai',
+    city:'Mumbai', pincode:'400049', ip_address:'117.220.45.2',
+  },
+  reject: {
+    customer_name:'Fraudster One', date_of_birth:'1990-01-01',
+    pan_number:'FAKEX0000X', aadhaar_number:'0000-0000-0001',
+    mobile:'0000000001', email:'hacker@fraud.com',
+    loan_amount:2000000, loan_tenure_months:24,
+    loan_purpose:'personal',
+    monthly_income:10000, employer_name:'Unknown Corp',
+    employment_type:'salaried', years_of_employment:0,
+    residential_address:'Unknown', city:'Unknown', pincode:'000000',
+  },
+  rahul: {
+    customer_name:'Rahul Mehta', date_of_birth:'1982-07-20',
+    pan_number:'ABCRM5678M', aadhaar_number:'5555-6666-7777',
+    mobile:'8765432190', email:'rahul.mehta@infosys.com',
+    loan_amount:3000000, loan_tenure_months:120,
+    loan_purpose:'home_purchase',
+    monthly_income:150000, employer_name:'Infosys Limited',
+    employment_type:'salaried', years_of_employment:12,
+    residential_address:'78 Sector 15, Noida',
+    city:'Noida', pincode:'201301', ip_address:'49.36.72.5',
+  },
+};
+
+function fillProfile(key) {
+  const p = PROFILES[key];
+  Object.keys(p).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = p[k];
+  });
+}
+
+// ── Form submission ────────────────────────────────────────────────────────
+async function submitApplication(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  const payload = {
+    customer_name:       document.getElementById('customer_name').value.trim(),
+    pan_number:          document.getElementById('pan_number').value.trim().toUpperCase(),
+    aadhaar_number:      document.getElementById('aadhaar_number').value.trim(),
+    date_of_birth:       document.getElementById('date_of_birth').value,
+    mobile:              document.getElementById('mobile').value.trim(),
+    email:               document.getElementById('email').value.trim(),
+    loan_amount:         parseFloat(document.getElementById('loan_amount').value),
+    loan_tenure_months:  parseInt(document.getElementById('loan_tenure_months').value),
+    loan_purpose:        document.getElementById('loan_purpose').value,
+    monthly_income:      parseFloat(document.getElementById('monthly_income').value),
+    employer_name:       document.getElementById('employer_name').value.trim(),
+    employment_type:     document.getElementById('employment_type').value,
+    years_of_employment: parseFloat(document.getElementById('years_of_employment').value || '1'),
+    residential_address: document.getElementById('residential_address').value.trim(),
+    city:                document.getElementById('city').value.trim(),
+    pincode:             document.getElementById('pincode').value.trim(),
+    ip_address:          document.getElementById('ip_address').value.trim() || '0.0.0.0',
+  };
+
+  try {
+    const res = await fetch(`${API}/api/v1/loans/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+
+    const decision = await res.json();
+    renderDecision(decision);
+    addToHistory(decision, payload.customer_name);
+
+  } catch (err) {
+    showToast('Error: ' + (err.message.includes('fetch') ? 'Cannot reach API — is app_server.py running on port 8000?' : err.message), true);
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+// ── Render decision ────────────────────────────────────────────────────────
+function fmt(n) { return '₹' + Number(n).toLocaleString('en-IN'); }
+
+function renderDecision(d) {
+  document.getElementById('empty-state').style.display = 'none';
+  const out = document.getElementById('decision-output');
+  out.style.display = 'block';
+
+  const verdict = d.decision.toLowerCase();
+  const score   = Math.round(d.final_score);
+  const terms   = d.loan_terms;
+
+  // Score ring SVG
+  const R = 36, CX = 44, CY = 44, stroke = 6;
+  const circ = 2 * Math.PI * R;
+  const fill  = circ * (score / 100);
+  const ringColor = verdict === 'approve' ? '#057A55' : verdict === 'refer' ? '#92400E' : '#9B1C1C';
+
+  const scoreRing = `
+    <div class="score-ring" style="width:88px;height:88px;position:relative">
+      <svg width="88" height="88" viewBox="0 0 88 88">
+        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="${stroke}"/>
+        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${ringColor}" stroke-width="${stroke}"
+          stroke-dasharray="${fill} ${circ}" stroke-linecap="round"/>
+      </svg>
+      <div class="score-ring-label">
+        <span class="score-num">${score}</span>
+        <span class="score-sub">score</span>
+      </div>
+    </div>`;
+
+  const verdictText = verdict === 'approve' ? '✓ Approved' : verdict === 'refer' ? '⟳ Referred' : '✗ Rejected';
+
+  // Reason codes
+  const reasonsHtml = (d.reason_codes||[]).length > 0
+    ? `<div class="reason-codes">${d.reason_codes.map(r =>
+        `<span class="reason-code ${r.includes('HIGH') || r.includes('CRITICAL') ? 'warn' : ''}">${r}</span>`
+      ).join('')}</div>`
+    : '';
+
+  // Terms
+  const termsHtml = terms ? `
+    <div class="terms-grid">
+      <div class="term-cell">
+        <div class="term-label">Approved amount</div>
+        <div class="term-value">${fmt(terms.approved_amount)}</div>
+      </div>
+      <div class="term-cell">
+        <div class="term-label">Interest rate</div>
+        <div class="term-value">${terms.interest_rate_pa}%</div>
+        <div class="term-sub">per annum</div>
+      </div>
+      <div class="term-cell">
+        <div class="term-label">Monthly EMI</div>
+        <div class="term-value">${fmt(terms.emi_amount)}</div>
+        <div class="term-sub">for ${terms.tenure_months} months</div>
+      </div>
+      <div class="term-cell">
+        <div class="term-label">Processing fee</div>
+        <div class="term-value">${fmt(terms.processing_fee)}</div>
+      </div>
+      <div class="term-cell">
+        <div class="term-label">Total repayable</div>
+        <div class="term-value">${fmt(terms.total_repayable)}</div>
+      </div>
+      <div class="term-cell">
+        <div class="term-label">Decision time</div>
+        <div class="term-value">${d.total_latency_ms}ms</div>
+      </div>
+    </div>` : `
+    <div class="terms-grid">
+      <div class="term-cell">
+        <div class="term-label">Decision time</div>
+        <div class="term-value">${d.total_latency_ms}ms</div>
+      </div>
+      <div class="term-cell">
+        <div class="term-label">Application ID</div>
+        <div class="term-value" style="font-family:var(--mono);font-size:13px">${d.application_id}</div>
+      </div>
+      <div class="term-cell">
+        <div class="term-label">Human review</div>
+        <div class="term-value">${d.human_review_required ? 'Required' : 'Not needed'}</div>
+      </div>
+    </div>`;
+
+  // Agents
+  const agentsHtml = (d.agent_breakdown||[]).map(a => {
+    const st = a.status;
+    const flagsHtml = (a.flags||[]).length
+      ? `<div class="agent-flags">${a.flags.map(f=>`<span class="agent-flag">${f}</span>`).join('')}</div>`
+      : '';
+    return `
+      <div class="agent-row">
+        <span class="agent-status-dot ${st}"></span>
+        <div class="agent-inner">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="agent-name">${a.agent}</span>
+            <span class="agent-weight">${Math.round(a.weight*100)}%</span>
+            <div class="agent-bar-wrap">
+              <div class="agent-bar ${st}" style="width:${a.score}%"></div>
+            </div>
+            <span class="agent-score ${st}">${Math.round(a.score)}</span>
+          </div>
+          ${flagsHtml}
+        </div>
+      </div>`;
+  }).join('');
+
+  out.innerHTML = `
+    <div class="decision-card">
+      <div class="decision-hero ${verdict}">
+        <div class="decision-verdict ${verdict}">${verdictText}</div>
+        <div class="decision-meta">
+          <div class="decision-meta-item">
+            <span class="decision-meta-label">Application</span>
+            <span class="decision-meta-value" style="font-size:13px;font-family:var(--mono)">${d.application_id}</span>
+          </div>
+          <div class="decision-meta-item">
+            <span class="decision-meta-label">Final score</span>
+            <span class="decision-meta-value">${score} / 100</span>
+          </div>
+          ${d.human_review_required ? `<div class="decision-meta-item">
+            <span class="decision-meta-label">Review</span>
+            <span class="decision-meta-value" style="font-size:13px;color:var(--amber)">Underwriter required</span>
+          </div>` : ''}
+        </div>
+        ${scoreRing}
+      </div>
+      ${termsHtml}
+      ${reasonsHtml}
+      <div class="agents-section">
+        <div class="agents-title">Agent breakdown</div>
+        ${agentsHtml}
+      </div>
+    </div>`;
+
+  out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+function addToHistory(decision, name) {
+  history.unshift({ decision, name, time: new Date() });
+  if (history.length > 10) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  if (!history.length) return;
+  document.getElementById('history-section').style.display = 'block';
+  document.getElementById('history-list').innerHTML = history.map((h, i) => {
+    const v = h.decision.decision.toLowerCase();
+    const time = h.time.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+    return `<div class="history-row" onclick="replayDecision(${i})">
+      <span class="history-verdict ${v}">${v.toUpperCase()}</span>
+      <span class="history-name">${h.name}</span>
+      <span class="history-score">${Math.round(h.decision.final_score)}</span>
+      <span class="history-time">${time}</span>
+    </div>`;
+  }).join('');
+}
+
+function replayDecision(i) { renderDecision(history[i].decision); }
+function clearHistory() {
+  history = [];
+  document.getElementById('history-section').style.display = 'none';
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => { t.className = 'toast'; }, 4000);
+}
+</script>
+</body>
+</html>

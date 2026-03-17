@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP Server Dashboard</title>
+<style>
+  :root {
+    --bg:        #0D1117;
+    --bg2:       #161B22;
+    --bg3:       #1C2128;
+    --border:    rgba(255,255,255,0.08);
+    --border2:   rgba(255,255,255,0.14);
+    --text:      #E6EDF3;
+    --muted:     #7D8590;
+    --green:     #3FB950;
+    --green-bg:  rgba(63,185,80,0.12);
+    --red:       #F85149;
+    --red-bg:    rgba(248,81,73,0.12);
+    --amber:     #D29922;
+    --amber-bg:  rgba(210,153,34,0.12);
+    --blue:      #58A6FF;
+    --blue-bg:   rgba(88,166,255,0.10);
+    --purple:    #BC8CFF;
+    --teal:      #39D353;
+    --mono:      'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --sans:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── Top nav ── */
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px;
+    height: 56px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 14px; font-weight: 600;
+    color: var(--text); letter-spacing: -0.01em;
+  }
+  .nav-brand .logo {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: linear-gradient(135deg, #1f6feb, #388bfd);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: white;
+  }
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+  .mode-badge {
+    font-family: var(--mono); font-size: 11px; padding: 3px 10px;
+    border-radius: 999px; border: 1px solid var(--border2);
+    color: var(--muted);
+  }
+  .mode-badge.mock { border-color: rgba(63,185,80,0.3); color: var(--green); background: var(--green-bg); }
+  .mode-badge.real { border-color: rgba(88,166,255,0.3); color: var(--blue); background: var(--blue-bg); }
+  .refresh-btn {
+    font-family: var(--mono); font-size: 12px; padding: 5px 14px;
+    border-radius: 6px; border: 1px solid var(--border2);
+    background: var(--bg3); color: var(--text); cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .refresh-btn:hover { background: rgba(255,255,255,0.06); border-color: var(--border2); }
+  .refresh-btn.spinning .icon { display: inline-block; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .last-polled { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  /* ── Main layout ── */
+  .main { padding: 28px 32px 48px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── Summary bar ── */
+  .summary {
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px; margin-bottom: 28px;
+  }
+  .stat {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-family: var(--mono); font-size: 26px; font-weight: 600; color: var(--text); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red   { color: var(--red); }
+  .stat-value.amber { color: var(--amber); }
+  .stat-value.blue  { color: var(--blue); }
+
+  /* ── Section header ── */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .section-title {
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* ── Server grid ── */
+  .servers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .server-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .server-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .server-card.healthy { border-color: rgba(63,185,80,0.25); }
+  .server-card.error   { border-color: rgba(248,81,73,0.2); }
+
+  .card-header {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between;
+  }
+  .card-name {
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    color: var(--text); margin-bottom: 4px;
+  }
+  .card-url {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+  }
+  .card-url a { color: var(--blue); text-decoration: none; }
+  .card-url a:hover { text-decoration: underline; }
+
+  .status-badge {
+    display: flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    padding: 4px 10px; border-radius: 999px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .status-badge .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .status-badge.healthy { background: var(--green-bg); color: var(--green); }
+  .status-badge.healthy .dot { background: var(--green); box-shadow: 0 0 0 2px rgba(63,185,80,0.25); }
+  .status-badge.error   { background: var(--red-bg);   color: var(--red); }
+  .status-badge.error .dot   { background: var(--red); }
+  .status-badge.loading { background: rgba(255,255,255,0.04); color: var(--muted); }
+  .status-badge.loading .dot { background: var(--muted); }
+
+  .card-meta {
+    padding: 8px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px; font-family: var(--mono);
+  }
+  .meta-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .meta-value { color: var(--text); font-weight: 500; }
+  .meta-value.green { color: var(--green); }
+  .meta-value.red   { color: var(--red); }
+  .meta-value.amber { color: var(--amber); }
+
+  .error-banner {
+    padding: 10px 16px;
+    background: rgba(248,81,73,0.08);
+    border-bottom: 1px solid rgba(248,81,73,0.2);
+    font-size: 11px; font-family: var(--mono); color: var(--red);
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* ── Tools list ── */
+  .tools-section { padding: 12px 16px 14px; }
+  .tools-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .tools-label {
+    font-size: 10px; font-weight: 600; color: var(--muted);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .tools-count {
+    font-family: var(--mono); font-size: 10px;
+    padding: 2px 7px; border-radius: 999px;
+    background: rgba(255,255,255,0.06); color: var(--muted);
+  }
+  .tools-list { display: flex; flex-direction: column; gap: 3px; }
+  .tool-row {
+    display: flex; align-items: center;
+    padding: 6px 10px; border-radius: 6px;
+    background: var(--bg3); border: 1px solid transparent;
+    cursor: pointer; transition: background 0.1s, border-color 0.1s;
+    gap: 8px;
+  }
+  .tool-row:hover { background: rgba(255,255,255,0.05); border-color: var(--border); }
+  .tool-icon {
+    width: 18px; height: 18px; border-radius: 4px;
+    background: rgba(88,166,255,0.15); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tool-icon svg { width: 10px; height: 10px; }
+  .tool-name {
+    font-family: var(--mono); font-size: 12px; color: var(--text); flex: 1;
+  }
+  .tool-try {
+    font-size: 10px; color: var(--muted);
+    opacity: 0; transition: opacity 0.1s;
+  }
+  .tool-row:hover .tool-try { opacity: 1; }
+
+  /* ── Call log ── */
+  .log-section {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .log-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .log-title { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .clear-btn {
+    font-size: 11px; font-family: var(--mono); padding: 3px 10px;
+    border-radius: 5px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .clear-btn:hover { color: var(--text); border-color: var(--border2); }
+  .log-body { max-height: 220px; overflow-y: auto; }
+  .log-entry {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 16px; border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .log-time  { color: var(--muted); flex-shrink: 0; width: 60px; }
+  .log-server { color: var(--blue); flex-shrink: 0; width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-tool  { color: var(--purple); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-status { flex-shrink: 0; }
+  .log-status.ok  { color: var(--green); }
+  .log-status.err { color: var(--red); }
+  .log-ms { color: var(--muted); flex-shrink: 0; width: 50px; text-align: right; }
+  .log-empty {
+    padding: 24px; text-align: center; font-size: 12px; font-family: var(--mono);
+    color: var(--muted);
+  }
+
+  /* ── Test call modal ── */
+  .overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 14px; width: 540px; max-width: 95vw;
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-title { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text); }
+  .modal-close {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { background: var(--bg3); color: var(--text); }
+  .modal-body { padding: 20px; }
+  .modal-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .modal-url {
+    font-family: var(--mono); font-size: 12px; color: var(--blue);
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 12px; margin-bottom: 14px;
+  }
+  .modal-textarea {
+    width: 100%; font-family: var(--mono); font-size: 12px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 12px; color: var(--text);
+    resize: vertical; min-height: 120px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .modal-textarea:focus { border-color: var(--border2); }
+  .modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .modal-response {
+    flex: 1; font-family: var(--mono); font-size: 11px; color: var(--muted);
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; max-height: 80px;
+    overflow-y: auto; white-space: pre-wrap;
+  }
+  .modal-response.ok  { color: var(--green); border-color: rgba(63,185,80,0.3); }
+  .modal-response.err { color: var(--red);   border-color: rgba(248,81,73,0.3); }
+  .send-btn {
+    font-family: var(--mono); font-size: 12px; padding: 7px 18px;
+    border-radius: 6px; border: none; cursor: pointer;
+    background: #1f6feb; color: white; font-weight: 600;
+    transition: background 0.15s; flex-shrink: 0;
+  }
+  .send-btn:hover { background: #388bfd; }
+  .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    .main { padding: 20px 16px 40px; }
+    .nav { padding: 0 16px; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .servers-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="logo">M</div>
+    MCP Dashboard
+  </div>
+  <div class="nav-right">
+    <span class="last-polled" id="last-polled">—</span>
+    <span class="mode-badge" id="mode-badge">—</span>
+    <button class="refresh-btn" id="refresh-btn" onclick="pollAll()">
+      <span class="icon">↺</span> Refresh
+    </button>
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- Summary stats -->
+  <div class="summary">
+    <div class="stat">
+      <div class="stat-label">Total Servers</div>
+      <div class="stat-value" id="s-total">5</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Online</div>
+      <div class="stat-value green" id="s-healthy">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Offline</div>
+      <div class="stat-value red" id="s-error">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Avg Latency</div>
+      <div class="stat-value amber" id="s-latency">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total Tools</div>
+      <div class="stat-value blue" id="s-tools">16</div>
+    </div>
+  </div>
+
+  <!-- Servers -->
+  <div class="section-header">
+    <span class="section-title">Servers</span>
+    <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">auto-refresh every 15s</span>
+  </div>
+  <div class="servers-grid" id="servers-grid"></div>
+
+  <!-- Call log -->
+  <div class="section-header" style="margin-top:8px">
+    <span class="section-title">Call Log</span>
+    <button class="clear-btn" onclick="clearLog()">Clear</button>
+  </div>
+  <div class="log-section">
+    <div class="log-body" id="log-body">
+      <div class="log-empty" id="log-empty">No calls recorded yet — click a tool to fire a test call</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Test call modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Test call</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-label">Endpoint</div>
+      <div class="modal-url" id="modal-url"></div>
+      <div class="modal-label">Request body</div>
+      <textarea class="modal-textarea" id="modal-payload" spellcheck="false"></textarea>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-response" id="modal-response">Response will appear here</div>
+      <button class="send-btn" id="send-btn" onclick="sendCall()">Send ↗</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SERVERS = [
+  {
+    name: 'document-verification-mcp', port: 8001,
+    tools: [
+      { name: 'verify_pan',       params: { pan_number: 'ABCPS1234P', customer_name: 'Priya Sharma' } },
+      { name: 'verify_aadhaar',   params: { aadhaar_number: '9876-5432-1098', customer_name: 'Priya Sharma' } },
+      { name: 'verify_documents', params: { pan_number: 'ABCPS1234P', customer_name: 'Priya Sharma' } },
+      { name: 'verify_all',       params: { pan_number: 'ABCPS1234P', aadhaar_number: '9876-5432-1098', customer_name: 'Priya Sharma' } },
+    ]
+  },
+  {
+    name: 'credit-bureau-mcp', port: 8002,
+    tools: [
+      { name: 'get_credit_score',  params: { pan_number: 'ABCPS1234P', customer_name: 'Priya Sharma' } },
+      { name: 'get_credit_report', params: { pan_number: 'ABCPS1234P', customer_name: 'Priya Sharma' } },
+      { name: 'get_multi_bureau',  params: { pan_number: 'ABCPS1234P', customer_name: 'Priya Sharma' } },
+    ]
+  },
+  {
+    name: 'bank-statement-mcp', port: 8003,
+    tools: [
+      { name: 'calculate_income', params: { pan_number: 'ABCPS1234P', account_number: '1234567890', stated_monthly_income: 85000 } },
+      { name: 'calculate_dti',    params: { pan_number: 'ABCPS1234P', monthly_income: 85000, loan_amount: 500000, tenure_months: 36 } },
+      { name: 'get_bank_summary', params: { pan_number: 'ABCPS1234P', account_number: '1234567890' } },
+    ]
+  },
+  {
+    name: 'risk-engine-mcp', port: 8004,
+    tools: [
+      { name: 'assess_fraud_risk', params: { pan_number: 'ABCPS1234P', mobile: '9876543210', email: 'priya@gmail.com', ip_address: '1.2.3.4', device_id: 'dev-001' } },
+      { name: 'check_blacklist',   params: { pan_number: 'ABCPS1234P', mobile: '9876543210' } },
+      { name: 'get_risk_band',     params: { pan_number: 'ABCPS1234P', mobile: '9876543210', email: 'priya@gmail.com' } },
+      { name: 'full_risk_check',   params: { pan_number: 'ABCPS1234P', mobile: '9876543210', email: 'priya@gmail.com', ip_address: '1.2.3.4', device_id: 'dev-001' } },
+    ]
+  },
+  {
+    name: 'compliance-mcp', port: 8005,
+    tools: [
+      { name: 'kyc_check',        params: { pan_number: 'ABCPS1234P', customer_name: 'Priya Sharma', date_of_birth: '1988-04-15' } },
+      { name: 'aml_screening',    params: { pan_number: 'ABCPS1234P', customer_name: 'Priya Sharma', date_of_birth: '1988-04-15' } },
+      { name: 'sanctions_check',  params: { pan_number: 'ABCPS1234P', customer_name: 'Priya Sharma' } },
+      { name: 'pep_check',        params: { pan_number: 'ABCPS1234P', customer_name: 'Priya Sharma', date_of_birth: '1988-04-15' } },
+    ]
+  },
+];
+
+const state = {};
+SERVERS.forEach(s => {
+  state[s.port] = { status: 'loading', latency: null, error: null, mode: null };
+});
+
+let callLog = [];
+let modalServer = null;
+let modalTool = null;
+
+function toolIcon() {
+  return `<svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 4h8M2 6h6M2 8h4" stroke="#58A6FF" stroke-width="1.2" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function renderGrid() {
+  const grid = document.getElementById('servers-grid');
+  grid.innerHTML = '';
+  let healthy = 0, errored = 0, latencies = [], totalTools = 0;
+
+  SERVERS.forEach(srv => {
+    const s = state[srv.port];
+    if (s.status === 'healthy') { healthy++; if (s.latency) latencies.push(s.latency); }
+    if (s.status === 'error') errored++;
+    totalTools += srv.tools.length;
+
+    const statusClass = s.status === 'healthy' ? 'healthy' : s.status === 'error' ? 'error' : 'loading';
+    const statusLabel = s.status === 'healthy' ? 'online' : s.status === 'error' ? 'offline' : 'checking…';
+
+    const latencyColor = !s.latency ? '' : s.latency < 100 ? 'green' : s.latency < 300 ? 'amber' : 'red';
+
+    let toolsHtml = srv.tools.map(t => `
+      <div class="tool-row" onclick="openModal('${srv.name}', ${srv.port}, '${t.name}', ${JSON.stringify(JSON.stringify(t.params))})">
+        <div class="tool-icon">${toolIcon()}</div>
+        <span class="tool-name">${t.name}</span>
+        <span class="tool-try">try ↗</span>
+      </div>`).join('');
+
+    const card = document.createElement('div');
+    card.className = `server-card ${statusClass}`;
+    card.innerHTML = `
+      <div class="card-header">
+        <div>
+          <div class="card-name">${srv.name}</div>
+          <div class="card-url"><a href="http://localhost:${srv.port}/health" target="_blank">localhost:${srv.port}</a></div>
+        </div>
+        <span class="status-badge ${statusClass}">
+          <span class="dot"></span>${statusLabel}
+        </span>
+      </div>
+      <div class="card-meta">
+        <span class="meta-item">
+          <span>latency</span>
+          <span class="meta-value ${latencyColor}">${s.latency ? s.latency + 'ms' : '—'}</span>
+        </span>
+        <span class="meta-item">
+          <span>mode</span>
+          <span class="meta-value ${s.mode === 'mock' ? 'green' : s.mode === 'real' ? 'blue' : ''}">${s.mode || '—'}</span>
+        </span>
+        <span class="meta-item">
+          <span>tools</span>
+          <span class="meta-value">${srv.tools.length}</span>
+        </span>
+      </div>
+      ${s.status === 'error' ? `<div class="error-banner">⚠ ${s.error || 'connection refused — server not running'}</div>` : ''}
+      <div class="tools-section">
+        <div class="tools-header">
+          <span class="tools-label">Available tools</span>
+          <span class="tools-count">${srv.tools.length}</span>
+        </div>
+        <div class="tools-list">${toolsHtml}</div>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  document.getElementById('s-healthy').textContent = healthy;
+  document.getElementById('s-error').textContent = errored;
+  document.getElementById('s-latency').textContent = latencies.length
+    ? Math.round(latencies.reduce((a,b)=>a+b,0)/latencies.length) + 'ms' : '—';
+  document.getElementById('s-tools').textContent = totalTools;
+
+  const now = new Date();
+  document.getElementById('last-polled').textContent = 'polled ' + now.toLocaleTimeString();
+
+  const allModes = [...new Set(Object.values(state).map(s => s.mode).filter(Boolean))];
+  const modeBadge = document.getElementById('mode-badge');
+  if (allModes.includes('real')) { modeBadge.className = 'mode-badge real'; modeBadge.textContent = 'REAL API'; }
+  else if (allModes.includes('mock')) { modeBadge.className = 'mode-badge mock'; modeBadge.textContent = 'MOCK DATA'; }
+  else { modeBadge.className = 'mode-badge'; modeBadge.textContent = '—'; }
+}
+
+async function pingServer(srv) {
+  const start = performance.now();
+  try {
+    const res = await Promise.race([
+      fetch(`http://localhost:${srv.port}/health`),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))
+    ]);
+    const latency = Math.round(performance.now() - start);
+    if (res.ok) {
+      const data = await res.json();
+      state[srv.port] = { status: 'healthy', latency, error: null, mode: data.mode || null };
+    } else {
+      state[srv.port] = { status: 'error', latency, error: `HTTP ${res.status}`, mode: null };
+    }
+  } catch(e) {
+    const msg = e.message === 'timeout' ? 'request timed out' : 'connection refused — run: MOCK_DATA=true python3 mcp_servers/run_servers.py';
+    state[srv.port] = { status: 'error', latency: null, error: msg, mode: null };
+  }
+  renderGrid();
+}
+
+async function pollAll() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  SERVERS.forEach(s => { state[s.port].status = 'loading'; });
+  renderGrid();
+  await Promise.all(SERVERS.map(pingServer));
+  btn.classList.remove('spinning');
+}
+
+function openModal(serverName, port, toolName, paramsJson) {
+  modalServer = { name: serverName, port };
+  modalTool = toolName;
+  const params = JSON.parse(paramsJson);
+  const payload = { tool: toolName, params };
+  document.getElementById('modal-title').textContent = toolName;
+  document.getElementById('modal-url').textContent = `POST http://localhost:${port}/call`;
+  document.getElementById('modal-payload').value = JSON.stringify(payload, null, 2);
+  document.getElementById('modal-response').textContent = 'Response will appear here';
+  document.getElementById('modal-response').className = 'modal-response';
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+async function sendCall() {
+  const btn = document.getElementById('send-btn');
+  const respEl = document.getElementById('modal-response');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  respEl.className = 'modal-response';
+  respEl.textContent = 'waiting…';
+
+  let payload;
+  try { payload = JSON.parse(document.getElementById('modal-payload').value); }
+  catch(e) { respEl.className = 'modal-response err'; respEl.textContent = 'Invalid JSON: ' + e.message; btn.disabled = false; btn.textContent = 'Send ↗'; return; }
+
+  const start = performance.now();
+  try {
+    const res = await fetch(`http://localhost:${modalServer.port}/call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const latency = Math.round(performance.now() - start);
+    const data = await res.json();
+    respEl.className = 'modal-response ' + (data.success ? 'ok' : 'err');
+    respEl.textContent = JSON.stringify(data.success ? data.data : { error: data.error }, null, 2);
+    addLog(modalServer.name, payload.tool, data.success, latency);
+  } catch(e) {
+    const latency = Math.round(performance.now() - start);
+    respEl.className = 'modal-response err';
+    respEl.textContent = 'Error: ' + e.message;
+    addLog(modalServer.name, payload.tool, false, latency);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Send ↗';
+}
+
+function addLog(server, tool, ok, ms) {
+  callLog.unshift({ server, tool, ok, ms, time: new Date() });
+  if (callLog.length > 50) callLog.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const body = document.getElementById('log-body');
+  const empty = document.getElementById('log-empty');
+  if (callLog.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  body.innerHTML = callLog.map(e => `
+    <div class="log-entry">
+      <span class="log-time">${e.time.toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>
+      <span class="log-server">${e.server}</span>
+      <span class="log-tool">${e.tool}</span>
+      <span class="log-status ${e.ok ? 'ok' : 'err'}">${e.ok ? '✓ ok' : '✗ err'}</span>
+      <span class="log-ms">${e.ms}ms</span>
+    </div>`).join('') + `<div id="log-empty" class="log-empty" style="display:none">No calls recorded yet</div>`;
+}
+
+function clearLog() { callLog = []; renderLog(); }
+
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlay')) closeModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+renderGrid();
+pollAll();
+setInterval(pollAll, 15000);
+</script>
+</body>
+</html>

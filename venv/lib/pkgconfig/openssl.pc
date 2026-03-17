@@ -1,0 +1,9 @@
+prefix=/Users/chandrashekarraju/workspace/loan_approval_real_mcp/venv
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include 
+
+Name: OpenSSL
+Description: Secure Sockets Layer and cryptography libraries and tools
+Version: 3.5.5
+Requires: libssl libcrypto
